@@ -34,30 +34,61 @@ module Refile
 
     # This will match all token authenticated requests
     before "/:token/:backend/*" do
+      pass unless token_exists?
       halt 403 unless verified?
     end
 
     get "/:token/:backend/:id/:filename" do
+      pass unless token_exists?
+      halt 404 unless download_allowed?
+      stream_file file
+    end
+
+    get "/:backend/:id/:filename" do
       halt 404 unless download_allowed?
       stream_file file
     end
 
     get "/:token/:backend/:processor/:id/:file_basename.:extension" do
+      pass unless token_exists?
+      halt 404 unless download_allowed?
+      stream_file processor.call(file, format: params[:extension])
+    end
+
+    get "/:backend/:processor/:id/:file_basename.:extension" do
       halt 404 unless download_allowed?
       stream_file processor.call(file, format: params[:extension])
     end
 
     get "/:token/:backend/:processor/:id/:filename" do
+      pass unless token_exists?
+      halt 404 unless download_allowed?
+      stream_file processor.call(file)
+    end
+
+    get "/:backend/:processor/:id/:filename" do
       halt 404 unless download_allowed?
       stream_file processor.call(file)
     end
 
     get "/:token/:backend/:processor/*/:id/:file_basename.:extension" do
+      pass unless token_exists?
+      halt 404 unless download_allowed?
+      stream_file processor.call(file, *params[:splat].first.split("/"), format: params[:extension])
+    end
+
+    get "/:backend/:processor/*/:id/:file_basename.:extension" do
       halt 404 unless download_allowed?
       stream_file processor.call(file, *params[:splat].first.split("/"), format: params[:extension])
     end
 
     get "/:token/:backend/:processor/*/:id/:filename" do
+      pass unless token_exists?
+      halt 404 unless download_allowed?
+      stream_file processor.call(file, *params[:splat].first.split("/"))
+    end
+
+    get "/:backend/:processor/*/:id/:filename" do
       halt 404 unless download_allowed?
       stream_file processor.call(file, *params[:splat].first.split("/"))
     end
@@ -110,6 +141,10 @@ module Refile
     end
 
   private
+
+    def token_exists?
+      params[:token].length == 40
+    end
 
     def download_allowed?
       Refile.allow_downloads_from == :all or Refile.allow_downloads_from.include?(params[:backend])
